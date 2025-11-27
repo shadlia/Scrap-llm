@@ -1,0 +1,26 @@
+version: 1
+disable_existing_loggers: False
+
+formatters:
+  json:
+    "()": pythonjsonlogger.jsonlogger.JsonFormatter
+    format: '{"message": "%(message)s", "severity": "%(levelname)s"}'
+    rename_fields:
+      levelname: severity
+    json_ensure_ascii: false
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    stream: ext://sys.stdout
+    formatter: json
+
+loggers:
+  __name__:
+    level: INFO
+    handlers: [console]
+    propagate: no
+
+root:
+  level: INFO
+  handlers: [console]

@@ -1,0 +1,47 @@
+name: Push
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    uses: ./.github/workflows/docker-build.yml
+    permissions:
+      contents: "read"
+      id-token: "write"
+
+  deploy:
+    needs: build
+    name: Deploy
+    runs-on: runs-on=${{ github.run_id }}/cpu=2/ram=4/family=t3/image=ubuntu22-full-x64
+    environment: dev
+    permissions:
+      contents: "read"
+      id-token: "write"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: "Authenticate to Google Cloud"
+        uses: "google-github-actions/auth@v2"
+        with:
+          workload_identity_provider: "${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}"
+          service_account: "scrap-llm-deployer@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
+      - uses: "google-github-actions/setup-gcloud@v2"
+      - name: "Deploy Back to Cloud Run"
+        if: needs.build.outputs.back_image != ''
+        uses: "google-github-actions/deploy-cloudrun@v2"
+        with:
+          service: "scrap-llm-back"
+          region: "europe-west1"
+          image: ${{ needs.build.outputs.back_image }}
+      - name: "Deploy Front to Cloud Run"
+        if: needs.build.outputs.front_image != ''
+        uses: "google-github-actions/deploy-cloudrun@v2"
+        with:
+          service: "scrap-llm-front"
+          region: "europe-west1"
+          image: ${{ needs.build.outputs.front_image }}

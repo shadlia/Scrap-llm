@@ -1,0 +1,52 @@
+node_modules
+storage
+dist
+__pycache__
+.python-version
+all_urls.txt
+filtered_urls.txt
+product_result
+result
+*.csv
+.next/
+.cursorrules
+.DS_Store
+.pytest_cache
+.vscode/
+package-lock.json
+.DS_Store
+
+# Added by Task Master AI
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dev-debug.log
+
+# Dependency directories
+node_modules/
+
+# Environment variables
+.env
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS specific
+
+# Task files
+tasks.json
+tasks/
+.taskmaster/
+
+
+.cursor/
+.ruff_cache/

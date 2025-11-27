@@ -1,0 +1,12 @@
+Dockerfile
+.dockerignore
+.git/
+.gitignore
+*.pyc
+__pycache__/
+.pytest_cache/
+tests/
+result/
+*.env
+README.md
+Makefile

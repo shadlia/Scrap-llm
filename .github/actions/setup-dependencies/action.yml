@@ -1,0 +1,41 @@
+name: Setup dependencies
+description: Sets node.js and the dependencies up
+
+runs:
+  using: composite
+  steps:
+    - name: Setup node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version-file: .nvmrc
+
+    - name: Cache dependencies
+      id: cache-dependencies
+      uses: runs-on/cache@v4
+      with:
+        path: |
+          .yarn/cache
+          node_modules
+        key: cache-dependencies-${{ hashFiles('yarn.lock') }}
+        restore-keys: |
+          cache-dependencies-
+
+    - name: Install dependencies
+      if: steps.cache-dependencies.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        yarn install --immutable
+
+    - name: Check lockfile
+      if: steps.cache-dependencies.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        yarn install --mode=update-lockfile
+
+        if git diff --name-only | grep -q yarn.lock;
+        then
+          echo "The lockfile is outdated !"
+          exit 1
+        else
+          echo "The lockfile is up to date !"
+        fi

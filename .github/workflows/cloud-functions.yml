@@ -1,0 +1,36 @@
+name: Cloud Functions
+
+on:
+  workflow_call:
+
+jobs:
+  deploy-hakrawler:
+    name: Deploy Hakrawler
+    environment: dev
+    runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+      id-token: "write"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: "Authenticate to Google Cloud"
+        id: "auth"
+        uses: "google-github-actions/auth@v2"
+        with:
+          workload_identity_provider: "${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}"
+          service_account: "scrap-llm-deployer@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
+      - name: "Set up Cloud SDK"
+        uses: "google-github-actions/setup-gcloud@v2"
+      - id: deploy
+        name: Deploy Cloud Function
+        run: |
+          gcloud functions deploy \
+            hakrawler \
+            --gen2 \
+            --region=europe-west1 \
+            --runtime=go123 \
+            --trigger-http \
+            --allow-unauthenticated \
+            --source=cloud-functions/hakrawler \
+            --entry-point=CrawlHandler

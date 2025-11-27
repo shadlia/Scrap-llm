@@ -1,0 +1,52 @@
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - PYTHONPATH=/app
+      - LOCAL_DEV=${LOCAL_DEV:-false}
+    env_file:
+      - .env
+    depends_on:
+      gcloud-tasks-emulator:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  redis:
+    image: redis:7.4-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server
+
+  gcloud-tasks-emulator:
+    image: ghcr.io/aertje/cloud-tasks-emulator:latest
+    command: -host 0.0.0.0 -port 8123 -queue "projects/dev/locations/here/queues/anotherq"
+    ports:
+      - "8123:8123"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8123"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # hakrawler:
+  #   build:
+  #     context: ./hakrawler
+  #     dockerfile: Dockerfile
+  #   image: hakrawler-api:latest
+  #   ports:
+  #     - "8081:8081"
+  #   restart: unless-stopped

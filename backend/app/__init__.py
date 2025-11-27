@@ -1,0 +1,1 @@
+"""fastapi module for scrap_llm.""" 

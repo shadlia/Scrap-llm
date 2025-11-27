@@ -1,0 +1,100 @@
+name: Build
+on:
+  workflow_call:
+    outputs:
+      front_image:
+        description: "The front image name"
+        value: ${{ jobs.front.outputs.image }}
+      back_image:
+        description: "The back image name"
+        value: ${{ jobs.back.outputs.image }}
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      front: ${{ steps.filter.outputs.front }}
+      back: ${{ steps.filter.outputs.back }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            front:
+              - "frontend/**"
+            back:
+              - "backend/**"
+
+  front:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.front == 'true' || github.ref == 'refs/heads/main'
+    name: Front
+    timeout-minutes: 7
+    runs-on: runs-on=${{ github.run_id }}/cpu=4/ram=16/family=t3/image=ubuntu22-full-x64
+    environment: dev
+    outputs:
+      image: ${{ steps.set_image.outputs.image }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Login to Docker Registries
+        uses: ./.github/actions/login-docker-registries
+        with:
+          artifact_registry: ${{ vars.CHOOSE_ARTIFACT_REGISTRY_BASE }}
+          gcp_workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          aws_mirror_registry: ${{ vars.AWS_MIRROR_REGISTRY }}
+          service_account: "scrap-llm-deployer@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
+      - uses: "google-github-actions/setup-gcloud@v2"
+      - name: Set image name
+        id: set_image
+        run: |
+          echo "image=europe-west1-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/choose/scrap-llm/front:${{ github.sha }}" >> $GITHUB_OUTPUT
+      - name: "Docker build push"
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          platforms: linux/amd64
+          tags: ${{ steps.set_image.outputs.image }}
+          # push: ${{ github.ref == 'refs/heads/main' }}
+          push: true
+          build-args: |
+            DOCKER_REGISTRY=${{ vars.AWS_MIRROR_REGISTRY }}
+            BACKEND_API_URL=${{ vars.BACKEND_ENDPOINT }}
+
+  back:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.back == 'true' || github.ref == 'refs/heads/main'
+    name: Back
+    timeout-minutes: 7
+    runs-on: runs-on=${{ github.run_id }}/cpu=4/ram=16/family=m7a+m7i-flex/image=ubuntu22-full-x64
+    environment: dev
+    outputs:
+      image: ${{ steps.set_image.outputs.image }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Login to Docker Registries
+        uses: ./.github/actions/login-docker-registries
+        with:
+          artifact_registry: ${{ vars.CHOOSE_ARTIFACT_REGISTRY_BASE }}
+          gcp_workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          aws_mirror_registry: ${{ vars.AWS_MIRROR_REGISTRY }}
+          service_account: "scrap-llm-deployer@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com"
+      - uses: "google-github-actions/setup-gcloud@v2"
+      - name: Set image name
+        id: set_image
+        run: |
+          echo "image=europe-west1-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/choose/scrap-llm/back:${{ github.sha }}" >> $GITHUB_OUTPUT
+      - name: "Docker build push"
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/Dockerfile
+          platforms: linux/amd64
+          tags: ${{ steps.set_image.outputs.image }}
+          # push: ${{ github.ref == 'refs/heads/main' }}
+          push: true
+          build-args: |
+            DOCKER_REGISTRY=${{ vars.AWS_MIRROR_REGISTRY }}

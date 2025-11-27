@@ -1,0 +1,47 @@
+# As our custom runners are currently hosted in AWS, we have setup a mirror registry in AWS ECR to avoid Docker Hub rate limits and to be closer to the runners.
+
+name: Docker Registries
+description: "Authenticates to Google Artifact Registry and AWS ECR"
+
+inputs:
+  gcp_workload_identity_provider:
+    description: "GCP Workload Identity Provider"
+    required: true
+  aws_mirror_registry:
+    description: "AWS mirror registry"
+    required: true
+  artifact_registry:
+    description: "Google Artifact Registry Base URL"
+    required: true
+  service_account:
+    description: "Service account to use for authentication"
+    default: "scrap-llm-deployer@choose-vp-dev.iam.gserviceaccount.com"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Authenticate to Google Cloud
+      id: auth
+      uses: "google-github-actions/auth@v2"
+      with:
+        workload_identity_provider: "${{ inputs.gcp_workload_identity_provider }}"
+        service_account: "${{ inputs.service_account }}"
+        token_format: "access_token"
+        access_token_lifetime: 900s
+    - uses: docker/login-action@v3
+      name: Login to Artifact Registry
+      with:
+        registry: ${{ inputs.artifact_registry }}
+        username: oauth2accesstoken
+        password: ${{ steps.auth.outputs.access_token }}
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-region: ${{ env.RUNS_ON_AWS_REGION }}
+    - name: Login to AWS ECR
+      uses: aws-actions/amazon-ecr-login@v2
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        driver-opts: |
+          image=${{ inputs.aws_mirror_registry }}/moby/buildkit:buildx-stable-1
